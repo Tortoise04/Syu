@@ -1,0 +1,199 @@
+{
+  "guard": {
+    "keywords": {
+      "redline": [
+        "（示例）违法内容词1",
+        "（示例）违法内容词2"
+      ],
+      "alarm": [
+        "（示例）炸群类报警词"
+      ],
+      "softAlarm": [
+        "（示例）叫停类软报警词"
+      ],
+      "rules": {
+        "R3": [
+          "（示例）暴力行为词"
+        ],
+        "R4": [],
+        "R5": [],
+        "R6": [],
+        "R7": [],
+        "R8": [],
+        "R9": [],
+        "R10": [],
+        "R11": [
+          "（示例）开盒相关词"
+        ]
+      },
+      "hints": {
+        "R3": [],
+        "R4": [
+          "（示例）低精度话题词"
+        ],
+        "R5": [],
+        "R6": [],
+        "R7": [],
+        "R8": [],
+        "R9": [],
+        "R10": [],
+        "R11": []
+      },
+      "gated": {
+        "R3": [
+          "（示例）需本地确认词"
+        ],
+        "R4": [],
+        "R5": [],
+        "R6": [],
+        "R7": [],
+        "R8": [],
+        "R9": [],
+        "R10": [],
+        "R11": []
+      },
+      "recordOnly": [
+        "（示例）群内交易词"
+      ]
+    },
+    "thresholds": {
+      "redline": 0.6,
+      "normal": 0.75,
+      "remind": 0.6
+    },
+    "budget": {
+      "daily": 800,
+      "perGroup": 100,
+      "groupDaily": {
+        "111111111": 700
+      }
+    },
+    "linkWhitelist": [
+      "bilibili.com",
+      "b23.tv",
+      "miyoushe.com"
+    ],
+    "rulesText": "★示例★：在此填写你自己群的群规全文（禁止项、处置力度、申诉方式）。\n1. 禁止一切违法与平台红线内容。\n2. 禁止人身攻击、引战、造谣与无关广告。\n3. 禁止露骨色情内容。",
+    "caps": {
+      "R9": 0
+    },
+    "silentSex": {
+      "rules": [
+        "R7",
+        "REDLINE"
+      ],
+      "extreme": {
+        "交易": [
+          "打包",
+          "一套",
+          "私我",
+          "多少钱",
+          "包月",
+          "会员",
+          "充值",
+          "收钱",
+          "套餐",
+          "单价"
+        ],
+        "招嫖": [
+          "有妹",
+          "上门",
+          "包夜",
+          "一小时",
+          "点钟",
+          "楼凤",
+          "快餐",
+          "学生妹",
+          "兼职妹"
+        ],
+        "站点": [],
+        "猥亵": [
+          "舔",
+          "操你",
+          "操死",
+          "睡你",
+          "摸你",
+          "给你口",
+          "发我裸照",
+          "来我家",
+          "亲你"
+        ],
+        "长篇": [],
+        "导流": [
+          "房间号",
+          "直播间",
+          "进来就脱",
+          "露点直播",
+          "开播了",
+          "房号"
+        ],
+        "换脸": [
+          "换脸",
+          "ai换脸",
+          "做成那种视频",
+          "合成视频",
+          "假视频"
+        ]
+      }
+    },
+    "whitelist": [
+      555555555
+    ],
+    "exemptPhrases": [
+      "（示例）玩笑白名单短语"
+    ]
+  },
+  "screen": {
+    "baseUrl": "http://127.0.0.1:11434",
+    "model": "qwen3:8b",
+    "enabled": true,
+    "timeoutMs": 8000,
+    "gatedTimeoutMs": 30000
+  },
+  "judge": {
+    "baseUrl": "https://api.deepseek.com/v1",
+    "model": "deepseek-flash",
+    "maxTokens": 1600,
+    "timeoutMs": 20000,
+    "sample": {
+      "suspicious": 1,
+      "clean": 0,
+      "unknown": 0
+    }
+  },
+  "notify": {
+    "enabled": true,
+    "adminQqs": [
+      444444444
+    ],
+    "recipients": [],
+    "groupRecipients": {
+      "123456789": [
+        444444444
+      ]
+    }
+  },
+  "collect": {
+    "enabled": true,
+    "dir": "D:\\Syu\\samples\\collect"
+  },
+  "inbox": {
+    "enabled": true,
+    "dir": "D:\\Syu\\samples\\private-inbox"
+  },
+  "actions": {
+    "groupSilent": true,
+    "dryRun": false,
+    "muteEnabled": false,
+    "cooldownMs": 300000,
+    "actionDailyCap": 40
+  },
+  "dataDir": "./data",
+  "console": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8789,
+    "napcatDir": "D:\\Syu\\napcat",
+    "qqPath": "C:\\Program Files\\Tencent\\QQNT\\QQ.exe"
+  }
+}

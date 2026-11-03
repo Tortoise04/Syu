@@ -1,0 +1,28 @@
+{
+  "name": "syu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "群聊守卫机器人：本地规则 → 本地粗筛 → 云端终审（当前 M1 骨架）",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "console": "node src/console/server.ts",
+    "dev": "node --watch src/index.ts",
+    "check": "tsc --noEmit",
+    "mock": "node scripts/mock-onebot.mjs",
+    "smoke": "node scripts/mock-onebot.mjs --smoke",
+    "test:action": "node scripts/test-action.mjs",
+    "test:learn": "node scripts/test-learn.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "typescript": "^5.9.3"
+  }
+}
