@@ -320,17 +320,31 @@
   #logView { flex:1 1 auto; min-height:0; height:auto; }
   .logtabs { margin-bottom:var(--sp-2); }
   .drawer-mask { position:fixed; inset:0; z-index:40; background:rgba(5,7,12,.62); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
-  .drawer { position:fixed; top:0; right:0; bottom:0; z-index:41; width:min(560px, 100vw); display:flex; flex-direction:column; background:rgba(16,19,29,.97); backdrop-filter:blur(24px) saturate(140%); -webkit-backdrop-filter:blur(24px) saturate(140%); border-left:1px solid var(--line-strong); box-shadow:var(--shadow-lg); animation:drawerIn .22s cubic-bezier(.4,0,.2,1); }
-  @keyframes drawerIn { from { transform:translateX(28px); opacity:.5; } to { transform:none; opacity:1; } }
+  .drawer { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:41; width:min(1080px, 94vw); height:min(860px, 88vh); display:flex; flex-direction:column; overflow:hidden; background:rgba(16,19,29,.98); backdrop-filter:blur(24px) saturate(140%); -webkit-backdrop-filter:blur(24px) saturate(140%); border:1px solid var(--line-strong); border-radius:16px; box-shadow:var(--shadow-lg); animation:modalIn .2s cubic-bezier(.4,0,.2,1); }
+  @keyframes modalIn { from { transform:translate(-50%,-48%); opacity:.4; } to { transform:translate(-50%,-50%); opacity:1; } }
   .drawer-head { display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-4) var(--sp-5); border-bottom:1px solid var(--line); }
   .drawer-head h2 { margin:0; font-size:var(--fs-lg); }
   .segbar { display:flex; gap:var(--sp-1); padding:var(--sp-2) var(--sp-4); border-bottom:1px solid var(--line); }
   .segbar button { background:none; border:none; border-radius:var(--r-s); padding:7px 14px; color:var(--dim); }
   .segbar button.on { color:var(--accent); background:rgba(123,141,255,.12); }
   .drawer-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:var(--sp-4) var(--sp-5) var(--sp-6); display:flex; flex-direction:column; gap:var(--sp-3); }
-  .drawer-body .grid { grid-template-columns:1fr; }
+  .drawer-body .grid { grid-template-columns:repeat(2, minmax(0, 1fr)); align-items:start; }
   .drawer-body .kv { flex-wrap:wrap; }
   .drawer-body .card { padding:var(--sp-3) var(--sp-4); }
+  .kv-col { flex-direction:column; align-items:stretch; gap:6px; }
+  .tag-field { display:flex; flex-direction:column; gap:4px; flex:1 1 100%; min-width:0; }
+  .tag-list { display:flex; flex-wrap:wrap; gap:6px; min-height:38px; padding:6px 8px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--bg-inset); }
+  .tag-list .chip-add { flex:1 1 160px; width:auto; border:none; background:none; min-height:26px; padding:2px 4px; }
+  .tag-list .chip-add:focus { outline:none; }
+  .tag-list .chip-add.invalid { border-bottom:1px solid var(--bad); }
+  .tag-error { color:var(--bad); }
+  .group-recipient-row { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px solid var(--line); border-radius:var(--r-s); background:rgba(255,255,255,.02); }
+  .group-recipient-head { display:flex; align-items:center; gap:8px; }
+  .group-recipient-head .gid { font-family:var(--font-mono); font-weight:600; }
+  @media (max-width:720px) {
+    .drawer { width:100vw; height:100vh; border-radius:0; }
+    .drawer-body .grid { grid-template-columns:1fr; }
+  }
   [hidden] { display:none !important; }
   @media (max-width:1080px) {
     body { height:auto; overflow:auto; }
@@ -940,7 +954,13 @@
     const who = document.createElement('span');
     who.className = 'who';
     const isPrivate = String(it.scope) === 'private' || Number(it.groupId) === 0;
-    who.textContent = isPrivate ? ('私聊 → QQ ' + (it.to === null || it.to === undefined ? '—' : it.to)) : ('发给 群 ' + (it.groupId || '—'));
+    if (isPrivate) {
+      const gid = Number(it.groupId) > 0 ? Number(it.groupId) : 0;
+      who.textContent = '私聊 → QQ ' + (it.to === null || it.to === undefined ? '—' : it.to)
+        + (gid > 0 ? '（群 ' + gid + ' 的通知）' : '');
+    } else {
+      who.textContent = '发给 群 ' + (it.groupId || '—');
+    }
     head.appendChild(who);
     b.appendChild(head);
     const kind = document.createElement('div');
@@ -1124,6 +1144,67 @@
     });
     input.addEventListener('input', () => input.classList.remove('invalid'));
     return input;
+  }
+
+  /** 标签式多值输入：items 原地增删；回车/中英文逗号/分号/空格/粘贴多值都能加，× 删除 */
+  function tagEditor(items, opts) {
+    const o = opts || {};
+    const field = document.createElement('div');
+    field.className = 'tag-field';
+    const box = document.createElement('div');
+    box.className = 'tag-list';
+    const err = document.createElement('div');
+    err.className = 'tag-error';
+    err.hidden = true;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chip-add';
+    input.placeholder = o.placeholder || '输入后回车添加';
+    const fail = (msg) => { err.textContent = msg; err.hidden = false; input.classList.add('invalid'); };
+    const clear = () => { err.hidden = true; err.textContent = ''; input.classList.remove('invalid'); };
+    const draw = () => {
+      box.textContent = '';
+      items.forEach((v) => box.appendChild(chip(v, () => {
+        const i = items.indexOf(v);
+        if (i >= 0) items.splice(i, 1);
+        draw();
+      })));
+      box.appendChild(input);
+    };
+    const addText = (raw) => {
+      const tokens = String(raw).split(/[,，;；\s]+/).map((s) => s.trim()).filter(Boolean);
+      if (tokens.length === 0) return;
+      let added = false;
+      let bad = '';
+      for (const tok of tokens) {
+        const r = o.validate ? o.validate(tok) : { ok: true, value: tok };
+        if (!r.ok) { bad = r.error || ('「' + tok + '」不合法'); continue; }
+        if (!items.includes(r.value)) { items.push(r.value); added = true; }
+      }
+      if (bad) fail(bad); else clear();
+      if (added) draw();
+      input.value = '';
+      input.focus();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',' || e.key === '，' || e.key === ';' || e.key === '；') {
+        e.preventDefault();
+        addText(input.value);
+      } else if (e.key === 'Backspace' && input.value === '' && items.length > 0) {
+        items.pop();
+        draw();
+        input.focus();
+      }
+    });
+    input.addEventListener('paste', (e) => {
+      const text = e.clipboardData ? e.clipboardData.getData('text') : '';
+      if (/[,，;；\s]/.test(text.trim())) { e.preventDefault(); addText(text); }
+    });
+    input.addEventListener('input', clear);
+    draw();
+    field.appendChild(box);
+    field.appendChild(err);
+    return field;
   }
 
   function renderGroupsPanel() {
@@ -1325,6 +1406,8 @@
   /* ---------- 参数概览（只读） ---------- */
   let paramsLoaded = false;
   let paramConfig = { groupIds: [], ownerQqs: [], groupOwners: {} };
+  /** 参数里的五个多值列表：标签编辑器直接改这些数组，collect 时整体读走 */
+  let paramLists = { adminQqs: [], recipients: [], whitelist: [], linkWhitelist: [], groupRecipients: {} };
   let paramBudgetRows = [];
   let paramBudgetDeleted = [];
   function paramCard(title, rows) {
@@ -1422,49 +1505,15 @@
     if (isNaN(actionDailyCap) || actionDailyCap < 1) errors.push('每日动作上限必须是 ≥1 的整数');
     if (isNaN(budgetDaily) || budgetDaily < 1) errors.push('每日预算必须是 ≥1 的整数');
     if (isNaN(budgetPerGroup) || budgetPerGroup < 1) errors.push('单群预算必须是 ≥1 的整数');
-    const adminRaw = el('pf-adminQqs').value.trim();
-    let adminQqs = [];
-    if (adminRaw) {
-      adminQqs = adminRaw.split(/[,，\s]+/).map((s) => parseInt(s, 10)).filter((n) => !isNaN(n) && n > 0);
-      if (adminQqs.length === 0) errors.push('额外收件人 QQ 格式不对（逗号分隔的纯数字）');
-    }
-    const notifRaw = el('pf-notifyRecipients').value.trim();
-    let notifyRecipients = [];
-    if (notifRaw) {
-      notifyRecipients = notifRaw.split(/[,，\s]+/).map((s) => parseInt(s, 10)).filter((n) => !isNaN(n) && n > 0);
-      if (notifyRecipients.length === 0) errors.push('通知人 QQ 格式不对（逗号分隔的纯数字）');
-      notifyRecipients = Array.from(new Set(notifyRecipients));
-    }
+    const adminQqs = Array.from(new Set(paramLists.adminQqs));
+    const notifyRecipients = Array.from(new Set(paramLists.recipients));
     const groupRecipients = {};
-    const grRaw = el('pf-notifyGroupRecipients').value.trim();
-    if (grRaw) {
-      grRaw.split(/[\n;；]+/).map((s) => s.trim()).filter(Boolean).forEach((line) => {
-        const m = line.match(/^(\d+)\s*[=＝:：]\s*(.+)$/);
-        if (!m) { errors.push('按群通知人里的「' + line + '」格式应为 群号=QQ,QQ'); return; }
-        const gid = m[1];
-        const qqs = m[2].split(/[,，\s]+/).filter(Boolean).map((s) => parseInt(s, 10));
-        if (qqs.length === 0 || qqs.some((n) => isNaN(n) || n <= 0)) { errors.push('按群通知人 ' + gid + ' 的 QQ 格式不对'); return; }
-        groupRecipients[gid] = Array.from(new Set(qqs));
-      });
-    }
-    const whitelist = [];
-    const wlRaw = el('pf-whitelist').value.trim();
-    if (wlRaw) {
-      wlRaw.split(/[,，\s]+/).filter(Boolean).forEach((tok) => {
-        if (!/^\d+$/.test(tok) || Number(tok) <= 0) { errors.push('免检白名单里的「' + tok + '」不是 QQ 号'); return; }
-        const q = Number(tok);
-        if (!whitelist.includes(q)) whitelist.push(q);
-      });
-    }
-    const linkWhitelist = [];
-    const lwRaw = el('pf-linkWhitelist').value.trim();
-    if (lwRaw) {
-      lwRaw.split(/[,，\s]+/).filter(Boolean).forEach((tok) => {
-        const domain = tok.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-        if (!domain.includes('.')) { errors.push('链接白名单里的「' + tok + '」不像域名（只写域名）'); return; }
-        if (!linkWhitelist.includes(domain)) linkWhitelist.push(domain);
-      });
-    }
+    Object.keys(paramLists.groupRecipients).sort().forEach((gid) => {
+      const qqs = Array.from(new Set(paramLists.groupRecipients[gid]));
+      if (qqs.length > 0) groupRecipients[gid] = qqs;
+    });
+    const whitelist = Array.from(new Set(paramLists.whitelist));
+    const linkWhitelist = Array.from(new Set(paramLists.linkWhitelist));
     const groupDaily = {};
     paramBudgetDeleted.forEach((gid) => { groupDaily[gid] = null; });
     const seen = new Set();
@@ -1530,10 +1579,91 @@
     }
   }
 
+  function qqValidator(where) {
+    return (raw) => (/^\d+$/.test(raw) && Number(raw) > 0)
+      ? { ok: true, value: Number(raw) }
+      : { ok: false, error: where + '里的「' + raw + '」不是 QQ 号' };
+  }
+  function domainValidator(raw) {
+    const d = raw.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    return d.includes('.')
+      ? { ok: true, value: d }
+      : { ok: false, error: '链接白名单里的「' + raw + '」不像域名（只写域名）' };
+  }
+  function fieldRow(label, field, hint) {
+    const row = document.createElement('div');
+    row.className = 'kv kv-col';
+    const l = document.createElement('span');
+    l.textContent = label;
+    row.appendChild(l);
+    row.appendChild(field);
+    if (hint) {
+      const h = document.createElement('div');
+      h.className = 'param-hint';
+      h.textContent = hint;
+      row.appendChild(h);
+    }
+    return row;
+  }
+  /** 按群通知人：一群一行，标签增删；列表直接读写 paramLists.groupRecipients */
+  function renderGroupRecipients(box) {
+    box.textContent = '';
+    Object.keys(paramLists.groupRecipients).sort().forEach((gid) => {
+      const row = document.createElement('div');
+      row.className = 'group-recipient-row';
+      const head = document.createElement('div');
+      head.className = 'group-recipient-head';
+      const g = document.createElement('span');
+      g.className = 'gid';
+      g.textContent = '群 ' + gid;
+      head.appendChild(g);
+      const rm = document.createElement('button');
+      rm.className = 'small';
+      rm.textContent = '移除群';
+      rm.style.marginLeft = 'auto';
+      rm.onclick = () => { delete paramLists.groupRecipients[gid]; renderGroupRecipients(box); };
+      head.appendChild(rm);
+      row.appendChild(head);
+      row.appendChild(tagEditor(paramLists.groupRecipients[gid], {
+        validate: qqValidator('群 ' + gid + ' 的通知人'),
+        placeholder: '接收 QQ，回车/逗号添加',
+      }));
+      box.appendChild(row);
+    });
+    const add = document.createElement('div');
+    add.className = 'btnrow';
+    const gidInput = document.createElement('input');
+    gidInput.type = 'text';
+    gidInput.className = 'mono';
+    gidInput.placeholder = '群号';
+    gidInput.style.width = '150px';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'small';
+    addBtn.textContent = '加一个群';
+    addBtn.onclick = () => {
+      const gid = gidInput.value.trim();
+      if (!/^\d+$/.test(gid) || Number(gid) <= 0) { toast('群号得是纯数字', 'err'); return; }
+      if (paramLists.groupRecipients[gid]) { toast('群 ' + gid + ' 已经在列表里', 'err'); return; }
+      paramLists.groupRecipients[gid] = [];
+      renderGroupRecipients(box);
+    };
+    gidInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
+    add.appendChild(gidInput);
+    add.appendChild(addBtn);
+    box.appendChild(add);
+  }
+
   function renderParams(d) {
     const p = d.params || {};
     const grid = el('paramGrid');
     grid.textContent = '';
+    paramLists.adminQqs = Array.isArray(p.notify && p.notify.adminQqs) ? p.notify.adminQqs.slice() : [];
+    paramLists.recipients = Array.isArray(p.notify && p.notify.recipients) ? p.notify.recipients.slice() : [];
+    paramLists.whitelist = Array.isArray(p.whitelist) ? p.whitelist.slice() : [];
+    paramLists.linkWhitelist = Array.isArray(p.linkWhitelist) ? p.linkWhitelist.slice() : [];
+    paramLists.groupRecipients = {};
+    const grSrc = (p.notify && p.notify.groupRecipients) || {};
+    Object.keys(grSrc).forEach((gid) => { if (Array.isArray(grSrc[gid])) paramLists.groupRecipients[gid] = grSrc[gid].slice(); });
     buildParamBudgetRows(p);
     const mins = (ms) => Math.round(Number(ms) / 60000) + ' 分钟';
     // ---- 可编辑：检测阈值 ----
@@ -1554,23 +1684,26 @@
     // ---- 可编辑：通知 ----
     const nCard = paramEditCard('通知', 'config.json · 可编辑');
     nCard.appendChild(kvToggle('通知开关（关=3 级也不私聊任何人）', 'pf-notifyEnabled', p.notify ? p.notify.enabled !== false : true));
-    nCard.appendChild(kvInput('全局额外收件人（adminQqs）', 'pf-adminQqs', 'text', p.notify && p.notify.adminQqs && p.notify.adminQqs.length ? p.notify.adminQqs.join(',') : '', { mono: true }));
-    nCard.appendChild(kvInput('通知人（只收提醒，逗号分隔）', 'pf-notifyRecipients', 'text', p.notify && p.notify.recipients && p.notify.recipients.length ? p.notify.recipients.join(',') : '', { mono: true }));
-    const grLines = [];
-    if (p.notify && p.notify.groupRecipients) {
-      Object.keys(p.notify.groupRecipients).sort().forEach((gid) => {
-        const list = p.notify.groupRecipients[gid];
-        if (Array.isArray(list) && list.length > 0) grLines.push(gid + '=' + list.join(','));
-      });
-    }
-    nCard.appendChild(kvArea('按群通知人（每行 群号=QQ,QQ；配了就不再收全局）', 'pf-notifyGroupRecipients', grLines.join('\n'), { rows: 3, placeholder: '123456789=10001,10002' }));
+    nCard.appendChild(fieldRow('全局额外收件人（adminQqs）', tagEditor(paramLists.adminQqs, {
+      validate: qqValidator('额外收件人'),
+      placeholder: 'QQ，回车/逗号添加',
+    })));
+    nCard.appendChild(fieldRow('通知人（只收提醒）', tagEditor(paramLists.recipients, {
+      validate: qqValidator('通知人'),
+      placeholder: 'QQ，回车/逗号添加',
+    })));
+    const grBox = document.createElement('div');
+    grBox.className = 'tag-field';
+    renderGroupRecipients(grBox);
+    nCard.appendChild(fieldRow('按群通知人', grBox, '配了某群后，该群 3 级证据只私聊给这批人；空的群列表不会写入配置。'));
     grid.appendChild(nCard);
 
     // ---- 可编辑：免检白名单（QQ） ----
     const wCard = paramEditCard('免检白名单（QQ）', 'config.json · 可编辑');
-    const wRow = kvInput('名单（逗号/空格分隔，空=没人免检）', 'pf-whitelist', 'text', Array.isArray(p.whitelist) && p.whitelist.length ? p.whitelist.join(',') : '', { mono: true });
-    wRow.querySelector('input').style.maxWidth = '100%';
-    wCard.appendChild(wRow);
+    wCard.appendChild(fieldRow('名单', tagEditor(paramLists.whitelist, {
+      validate: qqValidator('免检白名单'),
+      placeholder: 'QQ，回车/逗号添加',
+    }), '回车、中文逗号、空格都能加；点标签上的 × 删除。'));
     const wHint = document.createElement('div');
     wHint.className = 'param-hint';
     wHint.textContent = '名单里的人说话不判定、不进记录、不占预算；只是免检，不是管理员。';
@@ -1670,13 +1803,10 @@
 
     // ---- 可编辑：链接白名单 ----
     const wlCard = paramEditCard('链接白名单（域名，跳过必判）', 'config.json · 可编辑');
-    const lRow = kvInput('域名（逗号/空格分隔，空=没有豁免）', 'pf-linkWhitelist', 'text', Array.isArray(p.linkWhitelist) && p.linkWhitelist.length ? p.linkWhitelist.join(', ') : '', { mono: true });
-    lRow.querySelector('input').style.maxWidth = '100%';
-    wlCard.appendChild(lRow);
-    const lHint = document.createElement('div');
-    lHint.className = 'param-hint';
-    lHint.textContent = '只写域名（如 bilibili.com），不要协议头、路径或通配符；命中这些域名的链接不强制送审。';
-    wlCard.appendChild(lHint);
+    wlCard.appendChild(fieldRow('域名', tagEditor(paramLists.linkWhitelist, {
+      validate: domainValidator,
+      placeholder: 'bilibili.com，回车添加',
+    }), '只写域名（如 bilibili.com），会自动去掉 https:// 和路径；命中这些域名的链接不强制送审。'));
     grid.appendChild(wlCard);
   }
 

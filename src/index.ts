@@ -406,7 +406,7 @@ async function runPipeline(msg: MessageEvent, asReport: boolean): Promise<void> 
     }
   }
 
-  // 举报通道的回执发举报人（msg.user_id），不是被举报那条的作者
+  // reporterId 只留给日志排查：举报通道不再私聊举报人（2026-11-04 用户拍板）
   const report = await executeAction(actionDeps, decision, rec, groupId, Number(msg.user_id));
   if (report.failures > 0) {
     log.error(

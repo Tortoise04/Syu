@@ -394,8 +394,8 @@ await test('真实 config.json 能过校验，内容与关键词表 v0.3 一致'
   assert.equal(Object.keys(cfg.guard.budget.groupDaily).length, 1, '只给一个群设了日额度');
   assert.equal(Object.values(cfg.guard.budget.groupDaily)[0], 700, '2026-11-02 17:50 用户把活跃群额度提到 700');
   assert.equal(cfg.guard.thresholds.redline, 0.6);
-  // 不检测名单（2026-11-02）：默认空；真实 config 只收录一个号（19:43 加）
-  assert.equal(cfg.guard.whitelist.length, 1);
+  // 不检测名单（2026-11-02）：默认空；真实 config 目前收录两个号（11-04 又加了一个）
+  assert.equal(cfg.guard.whitelist.length, 2);
   // 玩笑白名单（2026-11-02 夜间）：内容同属隐私，只验形状，不写字面量
   assert.ok(Array.isArray(cfg.guard.exemptPhrases), '玩笑白名单必须是数组');
   assert.deepEqual(cfg.guard.exemptPhrases, rawCfg.guard.exemptPhrases, '玩笑白名单原样带出');

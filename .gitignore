@@ -1,9 +1,10 @@
 # 公开仓库：只放行代码与配置模板。
 # 白名单式——默认排除一切，再逐个放行：新增的语料 / 密钥 / 运行产物不会因为漏写规则被顺手带上去。
 # 被挡在外面的包括：真实配置 config.json、真实词表、运行数据 data/、登录二维码 qr/、原始语料 samples/、
-# .env、全部 .md 文档、.workbuddy/、依赖与同步冲突副本。
+# .env、除 README.md 与 PUSH_RULES.md 外的全部 .md 文档、.workbuddy/、依赖与同步冲突副本。
 /*
 !/.gitignore
+!/README.md
 !/PUSH_RULES.md
 !/keywords.example.json
 !/.env.example

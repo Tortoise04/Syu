@@ -160,7 +160,9 @@ interface MessageItem {
   mine: boolean;
   /** 是否已送云端终审（推导依据见 isCloudRecord） */
   cloud: boolean;
-  /** groupId=0 的私聊项额外带收件人与类型 */
+  /** 发出项的收发范围：private（私聊，groupId 可能是群号）/ group */
+  scope?: string;
+  /** 私聊收件人 QQ（scope=private 时写，groupId=0 的自检/回执也写） */
   to?: string;
   kind?: string;
 }
@@ -300,6 +302,7 @@ function sentToItem(rec: Record<string, unknown>): MessageItem {
   const groupId = num(rec.groupId, 0);
   const to = num(rec.to, 0);
   const scope = str(rec.scope, '');
+  const isPrivate = scope === 'private' || groupId === 0;
   const item: MessageItem = {
     ts: str(rec.ts, ''),
     groupId,
@@ -312,17 +315,18 @@ function sentToItem(rec: Record<string, unknown>): MessageItem {
     severity: 0,
     confidence: null,
     reason: null,
-    channel: groupId === 0 ? 'private' : 'self',
+    channel: isPrivate ? 'private' : 'self',
     keywords: [],
     action: str(rec.kind, ''),
     sent: [{ to, scope, text: str(rec.text, ''), ok: rec.ok === true }],
     mine: true,
     cloud: false,
   };
-  if (groupId === 0) {
-    item.to = String(to);
-    item.kind = str(rec.kind, '');
-  }
+  // 私聊（含「按群通知人」的群内通知私聊）：groupId 可能是群号，收件人只能从 to 认。
+  // 一律写 scope/to，供 /api/feed 的会话归类和前端气泡判断，否则会被当成群消息。
+  item.scope = isPrivate ? 'private' : 'group';
+  if (isPrivate) item.to = String(to);
+  if (groupId === 0) item.kind = str(rec.kind, '');
   return item;
 }
 
@@ -381,14 +385,16 @@ function buildPrivateMessages(limit: number): MessageItem[] {
  * 统一收发流（控制台单页化）：收到（violations）+ 发出（sent.jsonl 全部，含私聊）按 ts 升序取最近 limit 条。
  * type 区分方向：recv 走左侧气泡，sent 走右侧气泡。旧 /api/messages 的按会话口径保持不变。
  */
-/** 会话键：群 = group:<群号>；私聊 = dm:<QQ>。收到的消息归群，发出的私聊归 dm。 */
+/** 会话键：群 = group:<群号>；私聊 = dm:<QQ>。收到的消息归群，发出的私聊归 dm（groupId 也可能是群号）。 */
 function convKeyOf(item: Record<string, unknown>): string {
   if (String(item.type) === 'recv') {
     const gid = num(item.groupId, 0);
     return gid > 0 ? 'group:' + gid : 'dm:' + num(item.userId, 0);
   }
+  const to = str(item.to, '') !== '' ? Number(item.to) : 0;
   const isPrivate = String(item.scope) === 'private' || num(item.groupId, 0) === 0;
-  return isPrivate ? 'dm:' + (str(item.to, '') || '0') : 'group:' + num(item.groupId, 0);
+  if (isPrivate && to > 0) return 'dm:' + to;
+  return 'group:' + num(item.groupId, 0);
 }
 
 /** 收（violations）+ 发（sent.jsonl 全部）合并成一条时间流，按 ts 升序。 */

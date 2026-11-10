@@ -299,40 +299,40 @@ await test('8) 进程内集合清空后 ⇒ 仍靠 lastActionMessageId 拦住同
 });
 
 // --------------------------------------------------------------- 举报通道
-await test('9) report 通道 ⇒ 回执给举报人 + 照常对当事人群内动作，文案不提举报', async () => {
+await test('9) report 通道 ⇒ 群里照常对当事人动作，举报人一条私聊都收不到', async () => {
   resetActionState();
   const { store } = await newStore();
   const client = new FakeClient();
   const d = decision({ channel: 'report', severity: 2, action: 'warn', rule: 'R7' });
   const tgt = target({ messageId: 90009, userId: OWNER, nickname: '被举报者' });
   const rep = await executeAction(depsFor(client, store), d, tgt, GROUP, REPORTER);
-  // 2026-11-01 晚口径：举报人自己在群里 @ 机器人举报，身份已公开，「群里一声不吭」只是放过违规
+  // 2026-11-01 晚口径：举报人自己在群里 @ 机器人，身份已公开，「群里一声不吭」只是放过违规
   assert.equal(client.groupCalls().length, 1, '判到档位就要在群里动作');
   const group = client.groupCalls()[0];
   assert.equal(group.to, GROUP);
   assert.deepEqual(segAts(group.message), [String(OWNER)], '@ 的是被判定那条的作者，不是举报人');
   assert.ok(!/举报/.test(segText(group.message)), '群内文案一个字都不提举报');
-  assert.equal(client.calls.length, 2);
-  assert.equal(client.calls[1].scope, 'private');
-  assert.equal(client.calls[1].to, REPORTER, '回执只给举报人');
-  assert.equal(rep.sent, 2);
+  // 2026-11-04 用户拍板：收到举报不给举报人私聊，连回执也不发
+  const priv = client.calls.filter((c) => c.scope === 'private');
+  assert.equal(priv.length, 0, '举报人收不到任何私聊');
+  assert.equal(rep.sent, 1);
 });
 
-await test('10) report 私聊回执失败 ⇒ 只记日志，群内动作照发', async () => {
+await test('10) report 通道 escalate ⇒ 私聊只发主人的证据，举报人不在收件人里', async () => {
   resetActionState();
   const { store } = await newStore();
   const client = new FakeClient();
-  client.failPrivate = true;
   const rep = await executeAction(
     depsFor(client, store),
-    decision({ channel: 'report', action: 'warn' }),
+    decision({ channel: 'report', action: 'escalate', severity: 3, rule: 'R7' }),
     target({ messageId: 90010 }),
     GROUP,
     REPORTER,
   );
-  assert.equal(rep.failures, 1);
-  assert.equal(rep.fallback, false, '举报通道不走群内兜底');
-  assert.equal(client.groupCalls().length, 1, '回执失败不影响群内动作');
+  const priv = client.calls.filter((c) => c.scope === 'private');
+  assert.ok(priv.length > 0, '3 级证据照发主人');
+  assert.ok(priv.every((c) => c.to !== REPORTER), '举报人收不到私聊');
+  assert.equal(rep.fallback, false, '私聊没失败就不兜底');
 });
 
 // ------------------------------------------------------------------- mute

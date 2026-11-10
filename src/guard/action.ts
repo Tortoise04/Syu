@@ -82,7 +82,7 @@ export interface BuildOptions {
   recipients?: number[];
   /** 按群绑定的通知人：该群只给它发，不再并全局 recipients */
   groupRecipients?: Record<string, number[]>;
-  /** 举报人 QQ：举报通道的回执只发给他，绝不进群 */
+  /** 举报人 QQ：只用于日志排查，不再对他发回执（2026-11-04 用户拍板） */
   reporterId?: number;
   /** 证据私聊里的「时间」行用哪个时刻（传 deps 注入的时钟，保证测试可复现） */
   now?: Date;
@@ -117,7 +117,6 @@ export const RULE_TITLES: Record<RuleId, string> = {
 const PUBLIC_ALERT_TAIL = '，已记录；请当事人立刻停止，大家也请遵守群规。';
 /** 3 级私聊失败后的群内兜底：必须是实话 */
 const OWNER_FALLBACK_TEXT = '私聊通知失败，请查看日志';
-const REPORT_RECEIPT_TEXT = '已收到你的举报，已记录，群内不会公开举报人身份。';
 const OWNER_EVIDENCE_TITLE = '【群守卫·3 级证据】';
 /** 通知类私聊的标题（炸群报警词 / 条款 9 记录），与 3 级证据区分开 */
 const NOTIFY_TITLE = '【群守卫·通知】';
@@ -329,23 +328,18 @@ export function buildActionMessages(
   if (decision.action === 'none') return [];
 
   /**
-   * 举报通道（2026-11-01 晚用户拍板改口径）：
+   * 举报通道：
    * 举报人是在群里 @ 机器人举报的，身份本身已经公开，「群里一声不吭」保护不了他，
-   * 只是把违规放过。现在改成：回执照发，判到档位就照常对当事人动作，文案一个字不提举报。
-   * 真正的匿名举报只能走私聊通道（尚未做判定）。
+   * 只是把违规放过。所以判到档位就照常对当事人动作，文案一个字不提举报。
+   * 2026-11-04 用户拍板：收到举报不再私聊举报人（原来那条「已收到你的举报」回执已删），
+   * 只留日志与记录。真正的匿名举报只能走私聊通道（尚未做判定）。
    */
   if (decision.channel === 'report') {
-    const plan: ActionSend[] = actionFor(decision, target, groupId, opts);
     const reporter = opts.reporterId;
-    if (reporter === undefined || !Number.isFinite(reporter) || reporter <= 0) {
-      log.warn(`[action] 群${groupId} 举报消息${target.messageId} 拿不到举报人 QQ（事件里没有 user_id），回执不发`);
-    } else if (decision.action === 'escalate' && recipientListOf(opts, groupId).includes(reporter)) {
-      // 举报人本身就在证据收件人里：他随后会收到带原话的 3 级证据，不再补一条回执（2026-11-02 修重复私聊）
-      log.info(`[action] 群${groupId} 举报人${reporter} 已是证据收件人，回执并入证据，不另发`);
-    } else {
-      plan.push(privateSend(reporter, REPORT_RECEIPT_TEXT));
-    }
-    return plan;
+    const who =
+      reporter === undefined || !Number.isFinite(reporter) || reporter <= 0 ? '（事件里没有 user_id）' : String(reporter);
+    log.info(`[action] 群${groupId} 举报消息${target.messageId} 举报人${who}：按判定档位处理，不回执`);
+    return actionFor(decision, target, groupId, opts);
   }
 
   return actionFor(decision, target, groupId, opts);
@@ -422,7 +416,7 @@ async function sendOne(client: ActionClientPort, item: ActionSend, rec: SendLog)
 /**
  * 执行计划：dryRun → 幂等 → 当日额度 → 逐条发送（失败不重试）。
  * 3 级私聊接收人失败时补一条群内 @失败者 的实话提示（一轮最多补一条）；
- * 举报回执失败则静默（只记日志）。
+ * 举报通道不再发回执，失败兜底与它无关。
  */
 export async function executeAction(
   deps: ActionDeps,
@@ -440,7 +434,7 @@ export async function executeAction(
   const planned = buildActionMessages(decision, target, groupId, buildOpts);
   /**
    * 群内静默（2026-11-02 用户拍板）：groupSilent=true 时群内一条都不发，私聊全留。
-   * 只滤计划里的 group 条目——3 级证据私聊、举报回执、通知类私聊都不是群内消息。
+   * 只滤计划里的 group 条目——3 级证据私聊、通知类私聊都不是群内消息。
    */
   const plan = deps.actions.groupSilent ? planned.filter((item) => item.scope === 'private') : planned;
   if (plan.length !== planned.length) {
