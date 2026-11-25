@@ -188,6 +188,7 @@ npm run mock                            # 假 OneBot 端常驻，手工发事件
 | [`docs/architecture.md`](docs/architecture.md) | 架构说明：边界、主链路、数据契约、状态机、降级、控制台、测试矩阵 |
 | [`docs/assets/pipeline.html`](docs/assets/pipeline.html) | 主链路图（交互式，可导出 PNG） |
 | [`docs/assets/modules.html`](docs/assets/modules.html) | 模块依赖图（交互式，可导出 PNG） |
+| [`docs/push.md`](docs/push.md) | 推送通道：本机实测的三条通道、remote 怎么换、HTTPS 的两个参数、排错对照 |
 | `PUSH_RULES.md` | 入库规则：什么能进仓库、推送前自检、推错了怎么补救 |
 | `AGENTS.md` | 给服务器 agent 的开工说明与工作区机制 |
 

@@ -12,6 +12,7 @@
 | [`assets/pipeline.html`](assets/pipeline.html) | 想看清链路的人 | 主链路图（交互式，可导出 PNG） |
 | [`assets/modules.html`](assets/modules.html) | 想看清结构的人 | 模块依赖图（交互式，可导出 PNG） |
 | [`../PUSH_RULES.md`](../PUSH_RULES.md) | 要提交代码的人 | 入库规则、推送前自检、推错了怎么补救 |
+| [`push.md`](push.md) | 要在这台机器上推送的人 | 三条通道的实测结论、remote 怎么换、HTTPS 的两个参数、排错对照 |
 
 这两份文档的口径纪律：只写可核实的东西（能对到代码行、能对到测试输出、能对到配置文件），不写评价性形容词，不写"彻底解决""极大提升"这类无法证实的句子。真实群号、真实 QQ、真实词表、真实群聊原文一律不出现。
 
