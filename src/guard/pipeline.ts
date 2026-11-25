@@ -313,6 +313,7 @@ function flatResult(args: FlatArgs): PipeResult {
     hits: args.hits,
     degraded: args.degraded,
     cooledDown: false,
+    escalatedToThree: false,
   };
   const meta: RecordMeta = {
     groupId: groupIdOf(args.ev),
@@ -402,6 +403,18 @@ export function thresholdFor(
   return thresholds.normal;
 }
 
+/**
+ * 通知门槛（2026-11-13 用户拍板）：私聊通知与出手同一口径，置信度低于档位门槛就不通知。
+ * 起因：通知触发（index.ts runPipeline）原来只看档位，判定到 2 档但置信 0.62 < 0.75 时
+ * 群里不出手，私聊却照发，收件人收到一条自己都没被提醒的消息。
+ */
+export function notifyPasses(
+  decision: Pick<Decision, 'rule' | 'severity' | 'confidence'>,
+  thresholds: { redline: number; normal: number; remind?: number },
+): boolean {
+  return decision.confidence >= thresholdFor(decision.rule, decision.severity, thresholds);
+}
+
 async function runJudge(args: JudgeRunArgs): Promise<PipeResult> {
   const { ev, deps, channel, target, context, hits } = args;
   const groupId = groupIdOf(ev);
@@ -454,6 +467,7 @@ async function runJudge(args: JudgeRunArgs): Promise<PipeResult> {
       hits,
       degraded: true,
       cooledDown: false,
+      escalatedToThree: false,
     };
     return { decision, record: recordOf(meta, decision, [], now) };
   }
@@ -504,8 +518,15 @@ async function runJudge(args: JudgeRunArgs): Promise<PipeResult> {
   } else if (severity >= 1) {
     const count = countsForEscalation ? deps.store.bumpDailyCount(groupId, rule) : 0;
     if (countsForEscalation && !silentSexRule && count > 1) {
-      severity = Math.max(severity, 3) as Severity;
-      escalatedToThree = true;
+      // 升 3 前复核 3 档门槛（2026-11-13 用户拍板）：置信度够不上 3 档门槛就不升，
+      // 否则 1 档 0.60 的轻度判词会被「同条款第 2 次必出手」硬抬成 3 级证据私聊。
+      const escalateThreshold = thresholdFor(rule, 3, deps.thresholds);
+      if (confidence >= escalateThreshold) {
+        severity = Math.max(severity, 3) as Severity;
+        escalatedToThree = true;
+      } else {
+        reason = `${reason}（同条款当日第 ${count} 次，本应升 3 档，但置信度 ${confidence.toFixed(2)} < 门槛 ${escalateThreshold}，保持 ${severity} 档）`;
+      }
     }
     // 升 3 之后再过一次封顶：被封顶的条款连「升 3 必须出手」这条例外也不许突破
     const capped = capFor(rule, severity, deps);
@@ -552,6 +573,7 @@ async function runJudge(args: JudgeRunArgs): Promise<PipeResult> {
     hits,
     degraded: false,
     cooledDown,
+    escalatedToThree,
   };
   return { decision, record: recordOf(meta, decision, judged.extraRules ?? [], now) };
 }

@@ -114,6 +114,8 @@ export interface Decision {
   degraded: boolean;
   /** 被冷却拦住、只记录没动作 */
   cooledDown: boolean;
+  /** 被「同条款当日第 2 次」次数规则升到 3 档（秒杀级判定为 false，据此区分真秒杀与次数升档） */
+  escalatedToThree: boolean;
 }
 
 /** violations.jsonl 一行一条，判 0 级的也写 */

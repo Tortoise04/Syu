@@ -82,8 +82,16 @@ function decision(over = {}) {
     hits: ['广告'],
     degraded: false,
     cooledDown: false,
+    escalatedToThree: false,
     ...over,
   };
+}
+/**
+ * 秒杀级判定（2026-11-18 用户拍板）：只有 REDLINE / R11 / R3 真 3 档才发 3 级证据私聊，
+ * 次数升 3 的辱骂/涉黄不再私聊。测试里用 R11 代表秒杀级。
+ */
+function instant(over = {}) {
+  return decision({ rule: 'R11', severity: 3, action: 'escalate', ...over });
 }
 function target(over = {}) {
   return { messageId: 90001, userId: USER, nickname: '小明', text: '加我微信 卖号 广告', ...over };
@@ -192,7 +200,7 @@ await test('4) 3 级 escalate ⇒ 两条：群内不 @ 当事人 + 私聊主人�
   const { store } = await newStore();
   const client = new FakeClient();
   const tgt = target({ messageId: 90004, text: '加我微信卖号' });
-  const rep = await executeAction(depsFor(client, store), decision({ severity: 3, action: 'escalate' }), tgt, GROUP);
+  const rep = await executeAction(depsFor(client, store), instant(), tgt, GROUP);
   assert.equal(client.calls.length, 2, '3 级正好两条');
   assert.equal(rep.sent, 2);
   assert.equal(rep.failures, 0);
@@ -202,7 +210,7 @@ await test('4) 3 级 escalate ⇒ 两条：群内不 @ 当事人 + 私聊主人�
   assert.equal(pub.to, GROUP);
   assert.deepEqual(segAts(pub.message), [], '群内警示不许 @ 当事人');
   assert.match(segText(pub.message), /已记录/);
-  assert.match(segText(pub.message), /群规第4条/, '3 级群内警示也要写清违反哪条');
+  assert.match(segText(pub.message), /群规第11条/, '3 级群内警示也要写清违反哪条');
 
   const priv = client.calls[1];
   assert.equal(priv.scope, 'private');
@@ -213,7 +221,7 @@ await test('4) 3 级 escalate ⇒ 两条：群内不 @ 当事人 + 私聊主人�
   assert.match(ev, /小明/);
   assert.match(ev, new RegExp(String(USER)));
   assert.match(ev, /加我微信卖号/, '原话');
-  assert.match(ev, /R4/);
+  assert.match(ev, /R11/);
   assert.match(ev, /0\.93/, '置信度');
   assert.ok(!/通道：/.test(ev), '私信去掉「通道」行（2026-11-01 用户要求）');
 });
@@ -226,7 +234,7 @@ await test('5) 3 级私聊主人失败 ⇒ 群内补一条 @主人 的实话提�
   client.failPrivate = true;
   const rep = await executeAction(
     depsFor(client, store),
-    decision({ severity: 3, action: 'escalate' }),
+    instant(),
     target({ messageId: 90005 }),
     GROUP,
   );
@@ -324,7 +332,7 @@ await test('10) report 通道 escalate ⇒ 私聊只发主人的证据，举报�
   const client = new FakeClient();
   const rep = await executeAction(
     depsFor(client, store),
-    decision({ channel: 'report', action: 'escalate', severity: 3, rule: 'R7' }),
+    instant({ channel: 'report' }),
     target({ messageId: 90010 }),
     GROUP,
     REPORTER,
@@ -436,7 +444,7 @@ await test('15) 按群定向：绑定群 3 级只发绑定者 + adminQqs，全�
   const BOUND = [888001, 888002];
   const ADMIN = 770001;
   const deps = depsFor(client, store, { groupOwners: { [GROUP]: BOUND }, adminQqs: [ADMIN] });
-  const rep = await executeAction(deps, decision({ severity: 3, action: 'escalate' }), target({ messageId: 90015 }), GROUP);
+  const rep = await executeAction(deps, instant(), target({ messageId: 90015 }), GROUP);
   const privs = client.calls.filter((c) => c.scope === 'private').map((c) => c.to);
   assert.deepEqual(privs.sort((a, b) => a - b), [ADMIN, ...BOUND].sort((a, b) => a - b), '只发给绑定者 + adminQqs');
   assert.ok(!privs.includes(OWNER), '绑定群：全局 owner 不收');
@@ -450,7 +458,7 @@ await test('16) 按群定向：未绑定群回退全局 owner + adminQqs，别�
   const OTHER_GROUP = 20002;
   const ADMIN = 770001;
   const deps = depsFor(client, store, { groupOwners: { [GROUP]: [888001] }, adminQqs: [ADMIN] });
-  const rep = await executeAction(deps, decision({ severity: 3, action: 'escalate' }), target({ messageId: 90016 }), OTHER_GROUP);
+  const rep = await executeAction(deps, instant(), target({ messageId: 90016 }), OTHER_GROUP);
   const privs = client.calls.filter((c) => c.scope === 'private').map((c) => c.to);
   assert.deepEqual(privs.sort((a, b) => a - b), [ADMIN, OWNER].sort((a, b) => a - b), '未绑定群 → 全局 owner + adminQqs');
   assert.ok(!privs.includes(888001), '别群的绑定者不收');
@@ -464,7 +472,7 @@ await test('16b) 通知人：3 级证据与通知类私聊都收，且不改主�
   const client = new FakeClient();
   const WATCHER = 660001;
   const deps = depsFor(client, store, { recipients: [WATCHER] });
-  const rep = await executeAction(deps, decision({ severity: 3, action: 'escalate' }), target({ messageId: 90017 }), GROUP);
+  const rep = await executeAction(deps, instant(), target({ messageId: 90017 }), GROUP);
   const privs = client.calls.filter((c) => c.scope === 'private').map((c) => c.to);
   assert.deepEqual(privs.sort((a, b) => a - b), [OWNER, WATCHER].sort((a, b) => a - b), '通知人与主人同批收 3 级证据');
   assert.equal(rep.failures, 0);
@@ -483,7 +491,7 @@ await test('16c) 通知人只多收私聊：不改变群内动作，3 级群内�
   const client = new FakeClient();
   const WATCHER = 660002;
   const deps = depsFor(client, store, { recipients: [WATCHER] });
-  await executeAction(deps, decision({ severity: 3, action: 'escalate' }), target({ messageId: 90018 }), GROUP);
+  await executeAction(deps, instant(), target({ messageId: 90018 }), GROUP);
   const groups = client.calls.filter((c) => c.scope === 'group');
   assert.equal(groups.length, 1, '群内动作不受通知人影响，仍是一条警示');
 });
@@ -499,7 +507,7 @@ await test('16d) 按群通知人：配了主群就只发给主群，别的群不
     recipients: [GLOBAL],
     groupRecipients: { [String(GROUP)]: [WATCHER_MAIN] },
   });
-  const rep = await executeAction(deps, decision({ severity: 3, action: 'escalate' }), target({ messageId: 90019 }), GROUP);
+  const rep = await executeAction(deps, instant(), target({ messageId: 90019 }), GROUP);
   const privs = client.calls.filter((c) => c.scope === 'private').map((c) => c.to);
   assert.deepEqual(privs.sort((a, b) => a - b), [OWNER, WATCHER_MAIN].sort((a, b) => a - b), '主群只发绑定的通知人，不并全局');
   assert.equal(rep.failures, 0);
@@ -511,7 +519,7 @@ await test('16d) 按群通知人：配了主群就只发给主群，别的群不
     recipients: [GLOBAL],
     groupRecipients: { [String(GROUP)]: [WATCHER_MAIN] },
   });
-  await executeAction(deps2, decision({ severity: 3, action: 'escalate' }), target({ messageId: 90020 }), otherGroup);
+  await executeAction(deps2, instant(), target({ messageId: 90020 }), otherGroup);
   const privs2 = client2.calls.filter((c) => c.scope === 'private').map((c) => c.to);
   assert.deepEqual(privs2.sort((a, b) => a - b), [OWNER, GLOBAL].sort((a, b) => a - b), '没绑的群回退全局通知人，不串到别的群');
   assert.ok(!privs2.includes(WATCHER_MAIN) && !privs2.includes(WATCHER_OTHER), '别的群不会收到主群通知人');
@@ -582,7 +590,7 @@ await test('21) groupSilent=true ⇒ 群内一条都不发，3 级私聊证据�
   const client = new FakeClient();
   const rep = await executeAction(
     depsFor(client, store, { groupSilent: true }),
-    decision({ severity: 3, action: 'escalate' }),
+    instant(),
     target(),
     GROUP,
   );
@@ -609,12 +617,39 @@ await test('23) groupSilent=true ⇒ 3 级私聊失败也不许群内兜底', as
   client.failPrivate = true;
   const rep = await executeAction(
     depsFor(client, store, { groupSilent: true }),
-    decision({ severity: 3, action: 'escalate' }),
+    instant(),
     target(),
     GROUP,
   );
   assert.equal(client.groupCalls().length, 0, '兜底也不许进群');
   assert.equal(rep.fallback, false);
+});
+
+// ------------------------------------- 只有秒杀级才发 3 级证据（2026-11-18 用户拍板）
+await test('24) 非秒杀级升 3（R4 辱骂第 2 次）⇒ 只群内警示，不发证据私聊', async () => {
+  resetActionState();
+  const { store } = await newStore();
+  const client = new FakeClient();
+  const rep = await executeAction(
+    depsFor(client, store),
+    decision({ rule: 'R4', severity: 3, action: 'escalate' }),
+    target({ messageId: 90021 }),
+    GROUP,
+  );
+  assert.equal(client.groupCalls().length, 1, '群内警示照发');
+  assert.equal(client.calls.filter((c) => c.scope === 'private').length, 0, '非秒杀级不私聊');
+  assert.equal(rep.sent, 1);
+  assert.equal(rep.failures, 0);
+});
+
+await test('25) 秒杀级判定：REDLINE / R11 / R3 真 3 档才算，次数升 3 与 R4/R7 不算', async () => {
+  const { instantKill } = await import('../src/guard/level.ts');
+  assert.equal(instantKill({ rule: 'R3', severity: 3, escalatedToThree: false }), true, 'R3 真 3 档是秒杀');
+  assert.equal(instantKill({ rule: 'R3', severity: 3, escalatedToThree: true }), false, '次数升 3 不算秒杀');
+  assert.equal(instantKill({ rule: 'R4', severity: 3, escalatedToThree: false }), false, '辱骂不通知');
+  assert.equal(instantKill({ rule: 'REDLINE', severity: 0, escalatedToThree: false }), true, '红线恒秒杀');
+  assert.equal(instantKill({ rule: 'R11', severity: 3, escalatedToThree: false }), true, '开盒人肉秒杀');
+  assert.equal(instantKill({ rule: 'R7', severity: 3, escalatedToThree: false }), false, '涉黄不通知');
 });
 
 if (failures.length === 0) {

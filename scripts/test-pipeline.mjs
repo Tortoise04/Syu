@@ -396,6 +396,19 @@ await test('8) 升 3 级：第 1 次 warn，冷却窗外第 2 次 escalate', asy
   assert.equal(second.decision.action, 'escalate');
 });
 
+await test('8b) 升 3 复核门槛：第 2 次但置信度 0.62 < 0.75 保持 1 档', async () => {
+  // 2026-11-13 用户拍板：1 档 0.60 的轻度判词不许被次数规则硬抬成 3 级证据私聊
+  let fakeNow = new Date(2026, 4, 1, 13, 0, 0);
+  const { h } = await fresh({ now: () => fakeNow });
+  h.nextJudge = () => ok(1, 0.62, 'R4');
+  await handleMessage(groupMsg({ text: '肢解' }), h.ctx, h.deps);
+  fakeNow = new Date(fakeNow.getTime() + 5 * 60 * 1000 + 1000);
+  const second = await handleMessage(groupMsg({ text: '肢解' }), h.ctx, h.deps);
+  assert.equal(second.decision.severity, 1, '置信度 0.62 < 0.75，不升 3');
+  assert.equal(second.decision.action, 'remind');
+  assert.match(second.decision.reason, /本应升 3 档/);
+});
+
 // --------------------------------------------------------------- 9 冷却
 await test('9) 冷却：5 分钟内第 2 次 ⇒ judge 照调、action=none、cooledDown=true、记录照写', async () => {
   // 用 OTHER：它不参与「当日同群同条款第 2 次升 3」计数（见 pipeline.ts 的 countsForEscalation）。

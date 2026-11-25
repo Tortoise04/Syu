@@ -1,0 +1,368 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Syu 主链路：一条群消息如何被判定",
+    "subtitle": "本地规则分诊 → 本地粗筛 → 抽样送云终审 → 四道闸 → 四档处置",
+    "locale": "zh-CN",
+    "output": "docs/assets/pipeline.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "qq",
+      "type": "external",
+      "label": "QQ 群",
+      "sublabel": "被守卫的群",
+      "pos": [
+        60,
+        40
+      ],
+      "size": [
+        200,
+        66
+      ],
+      "icon": "person"
+    },
+    {
+      "id": "napcat",
+      "type": "external",
+      "label": "NapCat",
+      "sublabel": "OneBot v11 正向 WS :3002",
+      "pos": [
+        60,
+        166
+      ],
+      "size": [
+        200,
+        66
+      ],
+      "icon": "external"
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "index.ts 装配层",
+      "sublabel": "去重 · 按群过滤 · 举报分流",
+      "pos": [
+        60,
+        292
+      ],
+      "size": [
+        200,
+        74
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "rules.ts 分诊",
+      "sublabel": "四档词表 · 豁免 · 白名单",
+      "pos": [
+        60,
+        426
+      ],
+      "size": [
+        200,
+        74
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "screen",
+      "type": "backend",
+      "label": "screen.ts 粗筛",
+      "sublabel": "clean / suspicious / unknown",
+      "pos": [
+        60,
+        560
+      ],
+      "size": [
+        200,
+        74
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "judge",
+      "type": "backend",
+      "label": "judge.ts 终审",
+      "sublabel": "档位 · 置信度 · 原话片段",
+      "pos": [
+        60,
+        694
+      ],
+      "size": [
+        200,
+        74
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "gates",
+      "type": "security",
+      "label": "四道闸",
+      "sublabel": "封顶 · 阈值 · 冷却 · 预算",
+      "pos": [
+        60,
+        828
+      ],
+      "size": [
+        200,
+        74
+      ],
+      "icon": "security",
+      "tag": "任一不过即降为记录"
+    },
+    {
+      "id": "action",
+      "type": "backend",
+      "label": "action.ts 处置",
+      "sublabel": "0 记录 / 1 提醒 / 2 警告 / 3 升级",
+      "pos": [
+        60,
+        962
+      ],
+      "size": [
+        200,
+        74
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "ollama",
+      "type": "cloud",
+      "label": "Ollama",
+      "sublabel": "qwen3:8b · /api/chat",
+      "pos": [
+        392,
+        564
+      ],
+      "size": [
+        190,
+        66
+      ],
+      "icon": "cloud"
+    },
+    {
+      "id": "deepseek",
+      "type": "cloud",
+      "label": "DeepSeek API",
+      "sublabel": "只收抽样命中的可疑消息",
+      "pos": [
+        392,
+        698
+      ],
+      "size": [
+        190,
+        66
+      ],
+      "icon": "cloud"
+    },
+    {
+      "id": "state",
+      "type": "database",
+      "label": "data/state.json",
+      "sublabel": "双预算 · 冷却 · 按条款计数",
+      "pos": [
+        392,
+        828
+      ],
+      "size": [
+        190,
+        74
+      ],
+      "icon": "database"
+    },
+    {
+      "id": "record",
+      "type": "database",
+      "label": "violations.jsonl",
+      "sublabel": "每条判定一行，含抽样 roll",
+      "pos": [
+        60,
+        1108
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "icon": "database"
+    },
+    {
+      "id": "sent",
+      "type": "database",
+      "label": "sent.jsonl",
+      "sublabel": "实际发出的文案",
+      "pos": [
+        300,
+        1108
+      ],
+      "size": [
+        190,
+        70
+      ],
+      "icon": "database"
+    },
+    {
+      "id": "owners",
+      "type": "external",
+      "label": "群内 / 私聊",
+      "sublabel": "管理员 · 主人 · 定向接收人",
+      "pos": [
+        530,
+        1108
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "icon": "person"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "判定链（guard）",
+      "wraps": [
+        "rules",
+        "screen",
+        "judge",
+        "gates",
+        "action"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "id": "qq-napcat",
+      "from": "qq",
+      "to": "napcat",
+      "label": "群消息"
+    },
+    {
+      "id": "napcat-entry",
+      "from": "napcat",
+      "to": "entry",
+      "label": "原始事件"
+    },
+    {
+      "id": "entry-rules",
+      "from": "entry",
+      "to": "rules",
+      "label": "归一化文本"
+    },
+    {
+      "id": "rules-screen",
+      "from": "rules",
+      "to": "screen",
+      "label": "未直通云",
+      "variant": "dashed"
+    },
+    {
+      "id": "screen-judge",
+      "from": "screen",
+      "to": "judge",
+      "label": "可疑且抽中"
+    },
+    {
+      "id": "judge-gates",
+      "from": "judge",
+      "to": "gates",
+      "label": "档位 + 置信度"
+    },
+    {
+      "id": "gates-action",
+      "from": "gates",
+      "to": "action",
+      "label": "过闸"
+    },
+    {
+      "id": "screen-ollama",
+      "from": "screen",
+      "to": "ollama",
+      "label": "gated 词本地确认",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "judge-deepseek",
+      "from": "judge",
+      "to": "deepseek",
+      "label": "终审 JSON",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "gates-state",
+      "from": "gates",
+      "to": "state",
+      "label": "取预算 / 冷却",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "action-record",
+      "from": "action",
+      "to": "record",
+      "label": "先落盘"
+    },
+    {
+      "id": "action-sent",
+      "from": "action",
+      "to": "sent",
+      "label": "发什么记什么",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "action-owners",
+      "from": "action",
+      "to": "owners",
+      "label": "出手",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "三条通道",
+      "items": [
+        "直通云：命中 redline / rules.* / 链接词 / @机器人举报，直接终审",
+        "本地确认：命中 gated 词，先让本地模型判断真伪，可疑才上云",
+        "只记录：recordOnly 词、纯图片、粗筛 clean 未抽中，零云端成本"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "四道闸",
+      "items": [
+        "条款封顶 caps：照常送云，只压档位",
+        "置信度阈值：低于阈值只记录，与出手同口径",
+        "同群同人 5 分钟冷却；全局与单群预算任一满即不出手",
+        "预算被拒记 budgetOut，不静默丢弃"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "降级不留空白",
+      "items": [
+        "粗筛没筛成 = unknown，不许当 clean 放行",
+        "粗筛可疑但无证据 → 降 clean（举证式提示词闸门）",
+        "云端不可达或非 JSON → 0 档 + degraded，宁漏不误伤"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "可事后复算",
+      "items": [
+        "抽样用 sha1(groupId:messageId:salt) 前 8 位，同一条消息结果固定",
+        "记录里写 roll / rate，任何人可离线复算为什么没送云",
+        "violations 答“为什么这么判”，sent 答“到底说了什么”"
+      ]
+    }
+  ]
+}

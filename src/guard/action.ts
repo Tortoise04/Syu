@@ -3,6 +3,7 @@ import type { MessageSegment } from '../onebot/types.ts';
 import type { ActionsConfig } from '../config.ts';
 import type { Decision, RuleId } from './types.ts';
 import { appendSent, localIso } from './sent.ts';
+import { instantKill } from './level.ts';
 
 /**
  * M2b 动作链路：群内/私聊消息的唯一出口。
@@ -302,9 +303,14 @@ function actionFor(
     const alert = publicAlertText(decision.rule);
     const plan: ActionSend[] = [groupSend(groupId, [textSeg(alert)], alert)];
     const owners = ownerListOf(opts);
-    if (owners.length > 0) {
+    if (owners.length > 0 && instantKill(decision)) {
       const evidence = ownerEvidenceText(decision, target, groupId, opts.now);
       for (const owner of owners) plan.push(privateSend(owner, evidence));
+    } else if (owners.length > 0) {
+      // 2026-11-18 用户拍板：非秒杀级升 3（辱骂/涉黄第 2 次等）不发 3 级证据私聊，只记录
+      log.info(
+        `[action] 群${groupId} 消息${target.messageId} 非秒杀级升 3（${decision.rule} 档${decision.severity}），不发 3 级证据私聊`,
+      );
     } else {
       // 配置层已经强制要求 OWNER_QQ，走到这里说明上层没传：只留群内警示，不猜收件人
       log.error(`[action] 群${groupId} 3 级要私聊接收人，但名单为空（${JSON.stringify(opts.ownerQqs)}），只发群内警示`);

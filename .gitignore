@@ -16,5 +16,7 @@
 !/login-qq.bat
 !/src/
 !/scripts/
+# 对外文档：README 升级版 + 架构说明 + 架构图（全部脱敏，2026-11-25 放行）
+!/docs/
 # 露骨语料原文，只在本地运行
 /scripts/test-silent-sex.mjs

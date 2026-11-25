@@ -7,7 +7,8 @@ import { StateStore } from './state.ts';
 import { RingBuffer } from './guard/rules.ts';
 import { Screener } from './guard/screen.ts';
 import { Judge } from './guard/judge.ts';
-import { handleMessage, handleReport } from './guard/pipeline.ts';
+import { instantKill } from './guard/level.ts';
+import { handleMessage, handleReport, notifyPasses, thresholdFor } from './guard/pipeline.ts';
 import { appendViolation } from './guard/record.ts';
 import { executeAction, notifyOwners, replyToOperator, RULE_TITLES } from './guard/action.ts';
 import type { ActionDeps } from './guard/action.ts';
@@ -374,21 +375,23 @@ async function runPipeline(msg: MessageEvent, asReport: boolean): Promise<void> 
     }
   }
 
-  // 报警词（炸群/喊停）与条款 9：判定完私聊通知主人 + 群主（2026-11-01 用户拍板）。
+  // 报警词（炸群/喊停）：判定完私聊通知主人 + 群主（2026-11-01 用户拍板）。
+  // 2026-11-18 用户拍板：只有秒杀级（REDLINE / R11 / R3 真 3 档）才通知；
+  // bhhs（R9）、辱骂（R4）、涉黄（R7）以及次数升到 3 档的一律不私聊，记录照写。
   // 只私聊、不进群；dryRun 时只打日志。
   const alarmHit = decision.hits.some((hit) => hit.kind === 'alarm');
-  // 通知触发（2026-11-01 用户拍板）：炸群报警词 / 条款9 / 终审到 S2 及以上。
-  // 只私聊主人 + 群主，群里一个字不发；notify.enabled=true 时通知不受 dryRun 拦截。
   const noticeWhy = alarmHit
     ? '炸群报警词'
-    : rec.rule === 'R9'
-      ? '条款9（bhhs 等）只记录'
-      : decision.action === 'notify'
-        ? '色情静默（本条未在群里提醒）'
-        : rec.severity >= 2
-          ? `判定到 ${rec.severity} 级（${RULE_TITLES[rec.rule]}）`
-          : undefined;
-  if (noticeWhy !== undefined && decision.action === 'escalate') {
+    : instantKill(decision)
+      ? `判定到秒杀级（3 级·${RULE_TITLES[rec.rule]}）`
+      : undefined;
+  // 置信度门槛（2026-11-13 用户拍板）：通知与出手同一口径，低于档位门槛只记录、不私聊。
+  // 原来 2 档以上的通知不看置信度，出现「群里不出手、私聊却照发」的错位。
+  if (noticeWhy !== undefined && !notifyPasses(rec, deps.thresholds)) {
+    log.info(
+      `[action] 群${groupId} 消息${rec.messageId} 置信度 ${rec.confidence.toFixed(2)} < 门槛 ${thresholdFor(rec.rule, rec.severity, deps.thresholds)}，不通知（${noticeWhy}）`,
+    );
+  } else if (noticeWhy !== undefined && decision.action === 'escalate') {
     // 3 级：群内警示 + 私聊证据已经发给同一批收件人，不再补第二条通知（2026-11-02 修重复私聊）
     log.info(
       `[action] 群${groupId} 消息${rec.messageId} 3 级证据已私聊同一批收件人，跳过通知（${noticeWhy}）`,

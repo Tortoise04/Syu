@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Syu 模块图：谁依赖谁",
+    "subtitle": "依赖方向单向；管理面只读，不进判定链",
+    "locale": "zh-CN",
+    "output": "docs/assets/modules.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "cfg",
+      "type": "backend",
+      "label": "config.ts",
+      "sublabel": ".env + config.json 合并校验",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        170,
+        66
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "idx",
+      "type": "backend",
+      "label": "index.ts",
+      "sublabel": "装配 · 热加载 · 退出落盘",
+      "pos": [
+        40,
+        273
+      ],
+      "size": [
+        170,
+        68
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "cli",
+      "type": "backend",
+      "label": "onebot/client.ts",
+      "sublabel": "call · 重连 · 去重",
+      "pos": [
+        40,
+        430
+      ],
+      "size": [
+        170,
+        72
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "napcat",
+      "type": "external",
+      "label": "NapCat",
+      "sublabel": "OneBot v11",
+      "pos": [
+        40,
+        591
+      ],
+      "size": [
+        170,
+        62
+      ],
+      "icon": "external"
+    },
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "guard/rules.ts",
+      "sublabel": "四档词表 · 豁免",
+      "pos": [
+        340,
+        110
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "pipe",
+      "type": "backend",
+      "label": "guard/pipeline.ts",
+      "sublabel": "11 步 · 四道闸",
+      "pos": [
+        340,
+        272
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "st",
+      "type": "database",
+      "label": "state.ts",
+      "sublabel": "预算 · 冷却 · 计数",
+      "pos": [
+        340,
+        430
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "icon": "database"
+    },
+    {
+      "id": "ollama",
+      "type": "cloud",
+      "label": "Ollama",
+      "sublabel": "/api/chat",
+      "pos": [
+        650,
+        110
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "icon": "cloud"
+    },
+    {
+      "id": "eng",
+      "type": "backend",
+      "label": "screen.ts + judge.ts",
+      "sublabel": "粗筛 / 终审",
+      "pos": [
+        650,
+        273
+      ],
+      "size": [
+        180,
+        68
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "act",
+      "type": "backend",
+      "label": "action.ts + level.ts",
+      "sublabel": "文案 · 档位 · 秒杀级",
+      "pos": [
+        650,
+        430
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "icon": "backend"
+    },
+    {
+      "id": "ds",
+      "type": "cloud",
+      "label": "DeepSeek API",
+      "sublabel": "/chat/completions",
+      "pos": [
+        960,
+        272
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "icon": "cloud"
+    },
+    {
+      "id": "sto",
+      "type": "database",
+      "label": "data/ 落盘",
+      "sublabel": "state · violations · sent",
+      "pos": [
+        960,
+        430
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "icon": "database"
+    },
+    {
+      "id": "con",
+      "type": "backend",
+      "label": "console/*",
+      "sublabel": "回环 8789 · 进程启停",
+      "pos": [
+        1260,
+        430
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "icon": "backend"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "判定层 guard",
+      "wraps": [
+        "rules",
+        "pipe",
+        "eng",
+        "act"
+      ],
+      "pad": 26
+    },
+    {
+      "kind": "security-group",
+      "label": "只读管理面",
+      "wraps": [
+        "con"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "id": "napcat-cli",
+      "from": "napcat",
+      "to": "cli",
+      "label": "WS :3002",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "cli-idx",
+      "from": "cli",
+      "to": "idx",
+      "label": "事件回调",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "cfg-idx",
+      "from": "cfg",
+      "to": "idx",
+      "label": "loadConfig",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "idx-pipe",
+      "from": "idx",
+      "to": "pipe",
+      "label": "runPipeline",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "pipe-rules",
+      "from": "pipe",
+      "to": "rules",
+      "label": "分诊",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "pipe-st",
+      "from": "pipe",
+      "to": "st",
+      "label": "预算 · 冷却",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "pipe-eng",
+      "from": "pipe",
+      "to": "eng",
+      "label": "粗筛 / 终审",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "pipe-act",
+      "from": "pipe",
+      "to": "act",
+      "label": "决策",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          585,
+          307
+        ],
+        [
+          585,
+          465
+        ]
+      ]
+    },
+    {
+      "id": "eng-ollama",
+      "from": "eng",
+      "to": "ollama",
+      "label": "gated 确认",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "eng-ds",
+      "from": "eng",
+      "to": "ds",
+      "label": "终审",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "act-sto",
+      "from": "act",
+      "to": "sto",
+      "label": "落盘",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "con-sto",
+      "from": "con",
+      "to": "sto",
+      "label": "只读",
+      "fromSide": "left",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "依赖方向",
+      "items": [
+        "index → config / state / onebot / guard / collect / inbox",
+        "guard 内部只有 pipeline 调下游：rules、screen、judge、action、sample、learn",
+        "guard 不 import console，console 不 import guard"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "外部可替换",
+      "items": [
+        "NapCat 换成任何 OneBot v11 实现，只改 ONEBOT_WS_URL",
+        "Ollama 与 DeepSeek 换端点只改 config.json 的 baseUrl / model",
+        "唯一运行时依赖 ws；没有框架、没有构建步骤"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "管理面边界",
+      "items": [
+        "控制台是独立进程，主进程崩了还能启停它",
+        "进程只按 ExecutablePath 前缀识别，绝不按镜像名杀",
+        "写操作要求回环来源 + x-syu-console 头"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "没画进来的两个模块",
+      "items": [
+        "guard/sample.ts：确定性抽样，被 pipeline 调",
+        "guard/learn.ts：从举报 span 学词，进 gated 档",
+        "两者都只被 pipeline 调用，画进来只增加一条同向边"
+      ]
+    }
+  ]
+}

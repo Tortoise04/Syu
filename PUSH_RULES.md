@@ -81,5 +81,6 @@ git grep -nIE 'Dylan|C:\\\\Users\\\\[A-Za-z]+|1[3-9][0-9]{9}' -- . || echo '✅ 
 | --- | --- |
 | 2026-11-04 | 建立本规则；词表从 `config.example.json` 与 `src/config.ts` 默认值里抽出，改为 `keywords.example.json`；`scripts/test-rules.mjs` 里的样本 QQ 换成 `10001`；`src/console/procs.ts` 注释里的本机路径改成 `%APPDATA%` |
 | 2026-11-04 | 放行 `README.md`（对外说明，写清用途/上手/配置项，不含群号、QQ 与真实词表）；`.gitignore` 增 `!/README.md`；`scripts/test-state.mjs` 注释里的真实 QQ 去掉 |
+| 2026-11-25 | 放行 `docs/`（`docs/README.md` 文档索引、`docs/architecture.md` 架构说明、`docs/assets/*.html` 架构图与 `docs/assets/src/*.json` 图源）；`.gitignore` 增 `!/docs/`；放行前逐份检查：不含群号、QQ、密钥与群聊原文，内部材料（方案/标定/样本稿）仍在根目录不进仓库 |
 
 要改这份规则，先在这里加一行变更记录再改正文——**规则本身也要留痕**。
